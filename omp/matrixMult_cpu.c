@@ -12,7 +12,7 @@ char* createFilename(int N, char* fileBeging, char* fileEnding){
 }
 
 unsigned long long** createMatrix(int N){
-    unsigned long long** M = (unsigned long long **)malloc(N * sizeof(unsigned long long *));
+    unsigned long long** M = (unsigned long long**)malloc(N * sizeof(unsigned long long*));
     int i; 
     for (i=0; i<N; i++) 
         M[i] = (unsigned long long *)malloc(N * sizeof(unsigned long long));
@@ -26,7 +26,7 @@ void readMatrix(char* filename, unsigned long long** M, int N){
         return;
     }
     char *record,*line;
-    char buffer[1024];
+    char buffer[10000];
     int i=0,j=0;
     while((line=fgets(buffer,sizeof(buffer),fstream))!=NULL){
         j = 0;
@@ -35,7 +35,7 @@ void readMatrix(char* filename, unsigned long long** M, int N){
             M[i][j++] = atoi(record);
             record = strtok(NULL,",");
         }
-        ++i;
+        i++;
     }
 }
 
@@ -120,15 +120,15 @@ int main(int argc, char **argv){
 
     // Create and read matrix A
     unsigned long long** matrixA = createMatrix(N);
-    //readMatrix(fileA, matrixA, N);
+    readMatrix(fileA, matrixA, N);
     //ones(matrixA, N);
-    //printMatrix(A, N);
+    //printMatrix(matrixA, N);
 
     // Create and read matrix B
     unsigned long long** matrixB = createMatrix(N);
-    //readMatrix(fileB, matrixB, N);
+    readMatrix(fileB, matrixB, N);
     //ones(matrixB, N);
-    //printMatrix(B, N);
+    //printMatrix(matrixB, N);
     
     // Create C, obtain & print marix C
     unsigned long long** matrixC = createMatrix(N);
@@ -143,7 +143,7 @@ int main(int argc, char **argv){
     }
     r = clock_gettime(CLOCK_MONOTONIC, &tend);
     double delta = time_spec_seconds(&tend) - time_spec_seconds(&tstart);
-    printf("%d\t%d\t%.8f\n", N, H, delta);
+    printf("%d,%d,%.8f\n", N, H, delta);
     
     // Write matrix C on csv
     char* fileC = createFilename(N, "output/", "C.csv");
