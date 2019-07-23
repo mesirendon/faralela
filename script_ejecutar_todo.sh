@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Compile matrixMul_cpu
 cd omp/
 gcc -fopenmp matrixMult_cpu.c -o matrixMult_cpu
@@ -7,7 +9,7 @@ execute_matrixMult_cpu() {
 ./matrixMult_cpu ../input/${N}A.csv ../input/${N}B.csv ${N} ${H} | tee -a logs/matrixMult_cpu.csv
 }
 
-# Procesing images
+# Procesing matrices
 echo '╔═════════════════════════╗'
 echo '║     matrixMult_cpu      ║'
 echo '╚═════════════════════════╝'
