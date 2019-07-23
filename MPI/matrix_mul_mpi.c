@@ -72,77 +72,65 @@ int main(int argc, char **argv){
     char* fileB = argv[2];
     int N = atoi(argv[3]);
 
+    unsigned int* matrixA = createMatrix(N);
     unsigned int* matrixB = createMatrix(N);
     unsigned int* matrixC = createMatrix(N);
-    readMatrix(fileB, matrixB, N);
 
     MPI_Status status;
-    MPI_Init(NULL, NULL);
+    MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &number_of_processes);
     MPI_Comm_rank(MPI_COMM_WORLD, &process);
 
-    unsigned int chunk = N * N / number_of_processes;
+    unsigned int chunk = N / number_of_processes * N;
 
     // Send tags    
     int tagA = 1;
+    int tagB = 2;
     int tagC = 3;
 
     // Starting time
     int r = clock_gettime(CLOCK_MONOTONIC, &tstart);
 
     if(process == root) {
-
         // Prepare Matrices A and B
-        unsigned int* matrixA = createMatrix(N);
         readMatrix(fileA, matrixA, N);
-
+        readMatrix(fileB, matrixB, N);
         // Send chunks of matrix A
-        int offset = chunk;
-        for (int destination = 0; destination < number_of_processes; destination++)
-        {
+        int offset = 0;
+        for (int destination = 0; destination < number_of_processes; destination++, offset += chunk) {
             MPI_Send(matrixA[offset], chunk, MPI_INT, destination, tagA, MPI_COMM_WORLD);
-            offset += chunk;
+            MPI_Send(matrixB[0], N * N, MPI_INT, destination, tagB, MPI_COMM_WORLD);
         }
         
         // Receive chunks of matrix C
         offset = 0;
-        for (int source = 0; source < number_of_processes; source++)
-        {
+        for (int source = 0; source < number_of_processes; source++, offset += chunk)
             MPI_Recv(matrixC[offset], chunk, MPI_INT, source, tagC, MPI_COMM_WORLD, &status);
-			offset += chunk;	
-        }
 
         printMatrix(matrixC, N);
 
+        char* fileC = createFilename(N, "output/", "C.csv");
+        writeMatrix(fileC, matrixC, N);
         free(matrixA);
-        
+        free(matrixB);
+        free(matrixC);     
     }
-
+        
     unsigned int* minA = (unsigned int*)malloc(chunk * sizeof(unsigned int*));
     unsigned int* minC = (unsigned int*)malloc(chunk * sizeof(unsigned int*));
+    unsigned int* shadowB = createMatrix(N);
 
     MPI_Recv(minA[0] , chunk, MPI_INT, root, tagA, MPI_COMM_WORLD, &status);
+    MPI_Recv(shadowB, N * N, MPI_INT, root, tagB, MPI_COMM_WORLD, &status);
 
     for (int i = 0; i < (N / number_of_processes); i++)
-        for (int j = 0; j < N; j++)
-        {			
+        for (int j = 0; j < N; j++) {
             minC[i * N + j] = 0 ;	
             for (int k = 0; k < N; k++)
-                minC[i * N + j] += minA[i * N + k] * matrixB[k * N + j];
+                minC[i * N + j] += minA[i * N + k] * shadowB[k * N + j];
         }
     
     MPI_Send(minC[0], chunk, MPI_INT, root, tagC, MPI_COMM_WORLD);
-
-    // Juntar pedazos de resultado
-
-    if(process == root) {
-        // Save matrix c into file
-        char* fileC = createFilename(N, "output/", "C.csv");
-        writeMatrix(fileC, matrixC, N);
-        free(matrixB);
-        free(matrixC);
-    }
-
     MPI_Finalize();
 
     // Ending time
