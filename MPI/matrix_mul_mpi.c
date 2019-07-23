@@ -28,8 +28,9 @@ void readMatrix(char* filename, unsigned int* M, int N){
         j = 0;
         record = strtok(line,",");
         while(record != NULL){
-            M[i * N + j++] = atoi(record);
+            M[i * N + j] = atoi(record);
             record = strtok(NULL,",");
+            j++;
         }
         i++;
     }
@@ -70,16 +71,13 @@ int main(int argc, char **argv){
     char* fileA = argv[1];
     char* fileB = argv[2];
     int N = atoi(argv[3]);
-    int H = atoi(argv[4]);
 
     unsigned int* matrixB = createMatrix(N);
     unsigned int* matrixC = createMatrix(N);
     readMatrix(fileB, matrixB, N);
-    printf("Matrix B");
-    printMatrix(matrixB, N);
 
     MPI_Status status;
-    MPI_Init(&argc, &argv);
+    MPI_Init(NULL, NULL);
     MPI_Comm_size(MPI_COMM_WORLD, &number_of_processes);
     MPI_Comm_rank(MPI_COMM_WORLD, &process);
 
@@ -98,21 +96,19 @@ int main(int argc, char **argv){
         unsigned int* matrixA = createMatrix(N);
         readMatrix(fileA, matrixA, N);
 
-        printMatrix(matrixA, N);
-
         // Send chunks of matrix A
         int offset = chunk;
         for (int destination = 0; destination < number_of_processes; destination++)
         {
-            MPI_Send((void *) matrixA[offset], chunk, MPI_INT, destination, tagA, MPI_COMM_WORLD);
+            MPI_Send(matrixA[offset], chunk, MPI_INT, destination, tagA, MPI_COMM_WORLD);
             offset += chunk;
         }
         
         // Receive chunks of matrix C
-        offset = chunk;
+        offset = 0;
         for (int source = 0; source < number_of_processes; source++)
         {
-            MPI_Recv((void *) matrixC[offset], chunk, MPI_INT, source, tagC, MPI_COMM_WORLD, &status);
+            MPI_Recv(matrixC[offset], chunk, MPI_INT, source, tagC, MPI_COMM_WORLD, &status);
 			offset += chunk;	
         }
 
@@ -125,7 +121,7 @@ int main(int argc, char **argv){
     unsigned int* minA = (unsigned int*)malloc(chunk * sizeof(unsigned int*));
     unsigned int* minC = (unsigned int*)malloc(chunk * sizeof(unsigned int*));
 
-    MPI_Recv((void *) minA[0] , chunk, MPI_INT, root, tagA, MPI_COMM_WORLD, &status);
+    MPI_Recv(minA[0] , chunk, MPI_INT, root, tagA, MPI_COMM_WORLD, &status);
 
     for (int i = 0; i < (N / number_of_processes); i++)
         for (int j = 0; j < N; j++)
@@ -135,7 +131,7 @@ int main(int argc, char **argv){
                 minC[i * N + j] += minA[i * N + k] * matrixB[k * N + j];
         }
     
-    MPI_Send((void *) minC[0], chunk, MPI_INT, root, tagC, MPI_COMM_WORLD);
+    MPI_Send(minC[0], chunk, MPI_INT, root, tagC, MPI_COMM_WORLD);
 
     // Juntar pedazos de resultado
 
@@ -152,7 +148,7 @@ int main(int argc, char **argv){
     // Ending time
     r = clock_gettime(CLOCK_MONOTONIC, &tend);
     double delta = time_spec_seconds(&tend) - time_spec_seconds(&tstart);
-    printf("%d,%d,%.8f\n", N, H, delta);
+    printf("%d,%.8f\n", N, delta);
 
     return 0;
 }

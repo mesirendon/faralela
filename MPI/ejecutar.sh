@@ -11,7 +11,7 @@ gcc genRandMatrix.c -o genRandMatrix && ./genRandMatrix
 mpicc matrix_mul_mpi.c -o matrix_mul_mpi -lm
 
 multiply() {
-    mpirun -np $process_number --hostfile mpi-hosts ./matrix_mul_mpi ./input/${N}A.csv ./input/${N}B.csv $N | tee -a ./logs/matrixMult_cpu.csv
+    mpirun --mca btl_base_warn_component_unused 0 --mca orte_base_help_aggregate 0 -np $process_number --hostfile mpi-hosts ./matrix_mul_mpi ./input/${N}A.csv ./input/${N}B.csv $N | tee -a ./logs/matrixMult_cpu.csv
 }
 
 echo '╔═════════════════════════════════════╗'
