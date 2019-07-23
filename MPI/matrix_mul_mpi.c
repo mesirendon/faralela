@@ -23,7 +23,7 @@ void readMatrix(char* filename, unsigned int* M, int N){
     }
     char *record,*line;
     char buffer[10000];
-    int i = 0;
+    int i = 0, j;
     while((line=fgets(buffer,sizeof(buffer),fstream))!=NULL){
         j = 0;
         record = strtok(line,",");
@@ -44,29 +44,13 @@ void printMatrix(unsigned int* M, int N){
     printf("\n");
 }
 
-void multiplyMatrix(unsigned long long** A, unsigned long long** B, unsigned long long** C, int N){ 
-    int i, j, k;
-    for (i = 0; i < N; i++)
-    {
-        for (j = 0; j < N; j++)
-        { 
-            C[i][j] = 0; 
-            for (k = 0; k < N; k++) 
-                C[i][j] += A[i][k]*B[k][j]; 
-        } 
-    }
-}
-
-void writeMatrix(char *filename, unsigned long long** C, int N){
+void writeMatrix(char *filename, unsigned int* C, int N){
     FILE *fp;
-    int i,j;
-    fp=fopen(filename,"w+");
-    for(i=0 ; i<N; i++){
-        for(j=0; j<N-1; j++){
-            fprintf(fp,"%lld,",C[i][j]);
-        }
-        fprintf(fp,"%lld",C[i][j]);
-        fprintf(fp,"\n");
+    fp = fopen(filename, "w+");
+    for(int i = 0; i < N; i++){
+        for(int j = 0; j < N - 1; j++)
+            fprintf(fp, "%d,", C[i * N + j]);
+        fprintf(fp, "\n");
     }
     fclose(fp);
 }
@@ -79,8 +63,8 @@ int main(int argc, char **argv){
     struct timespec tstart = {0,0}, tend = {0,0};
     int number_of_processes, process, root = 0;
     // Arguments
-    if ( argc !=  5){
-        printf("usage: ./matrixMult MatA.csv MatB.csv N H\n");
+    if ( argc !=  4){
+        printf("usage: ./matrixMult MatA.csv MatB.csv N\n");
         return -1;
     }
     char* fileA = argv[1];
@@ -91,6 +75,8 @@ int main(int argc, char **argv){
     unsigned int* matrixB = createMatrix(N);
     unsigned int* matrixC = createMatrix(N);
     readMatrix(fileB, matrixB, N);
+    printf("Matrix B");
+    printMatrix(matrixB, N);
 
     MPI_Status status;
     MPI_Init(&argc, &argv);
@@ -112,11 +98,13 @@ int main(int argc, char **argv){
         unsigned int* matrixA = createMatrix(N);
         readMatrix(fileA, matrixA, N);
 
+        printMatrix(matrixA, N);
+
         // Send chunks of matrix A
         int offset = chunk;
         for (int destination = 0; destination < number_of_processes; destination++)
         {
-            MPI_Send(A[offset], chunk, MPI_INT, destination, tagA, MPI_COMM_WORLD);
+            MPI_Send((void *) matrixA[offset], chunk, MPI_INT, destination, tagA, MPI_COMM_WORLD);
             offset += chunk;
         }
         
@@ -124,9 +112,11 @@ int main(int argc, char **argv){
         offset = chunk;
         for (int source = 0; source < number_of_processes; source++)
         {
-            MPI_Recv(C[offset], chunk, MPI_INT, source, tagC, MPI_COMM_WORLD, &status);
+            MPI_Recv((void *) matrixC[offset], chunk, MPI_INT, source, tagC, MPI_COMM_WORLD, &status);
 			offset += chunk;	
         }
+
+        printMatrix(matrixC, N);
 
         free(matrixA);
         
@@ -135,17 +125,17 @@ int main(int argc, char **argv){
     unsigned int* minA = (unsigned int*)malloc(chunk * sizeof(unsigned int*));
     unsigned int* minC = (unsigned int*)malloc(chunk * sizeof(unsigned int*));
 
-    MPI_Recv(minA[0] , chunk, MPI_INT, root, tagA, MPI_COMM_WORLD, &status);
+    MPI_Recv((void *) minA[0] , chunk, MPI_INT, root, tagA, MPI_COMM_WORLD, &status);
 
     for (int i = 0; i < (N / number_of_processes); i++)
         for (int j = 0; j < N; j++)
         {			
             minC[i * N + j] = 0 ;	
             for (int k = 0; k < N; k++)
-                minC[i * N + j] += minA[i * N + k] * B[k * N + j];
+                minC[i * N + j] += minA[i * N + k] * matrixB[k * N + j];
         }
     
-    MPI_Send(minC[0], chunk, MPI_INT, root, tagC, MPI_COMM_WORLD);
+    MPI_Send((void *) minC[0], chunk, MPI_INT, root, tagC, MPI_COMM_WORLD);
 
     // Juntar pedazos de resultado
 
